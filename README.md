@@ -27,7 +27,8 @@ git submodule init && git submodule update --init --recursive
 # init python3 env
 python3 -m virtualenv .
 source bin/activate
-pip3 install keras tensorflow-gpu nltk gensim h5py pandas
+pip3 install keras tensorflow-gpu nltk gensim h5py pandas nltk sklearn
+# pip3 install google-compute-engine # required for GCE
 ```
 
 ## CUDNN
