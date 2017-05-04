@@ -1,0 +1,3 @@
+[submodule "embeddings/glove-to-word2vec"]
+	path = embeddings/glove-to-word2vec
+	url = https://github.com/jroakes/glove-to-word2vec
