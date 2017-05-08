@@ -3,6 +3,8 @@ from nltk.stem import SnowballStemmer
 from string import punctuation
 import re
 
+# The function "text_to_wordlist" is from
+# https://www.kaggle.com/currie32/quora-question-pairs/the-importance-of-cleaning-text
 def text_to_wordlist(text, remove_stopwords=False, stem_words=False):
     # Clean the text, with the option to remove stopwords and to stem words.
 
