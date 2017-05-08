@@ -15,12 +15,9 @@ According to experiments by kagglers, Theano backend with GPU may give bad LB sc
 ########################################
 import os
 import re
-import csv
-import codecs
 import numpy as np
 import pandas as pd
 
-from gensim.models import KeyedVectors
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
 from keras.layers import Dense, Input, LSTM, Embedding, Dropout, Activation
@@ -30,6 +27,8 @@ from keras.layers.normalization import BatchNormalization
 from keras.callbacks import EarlyStopping, ModelCheckpoint
 
 from data.text_to_wordlist import text_to_wordlist
+from data.load_train import load_train
+from embeddings.load_embeddings import load_embeddings
 from sklearn.metrics import log_loss
 
 import sys
@@ -39,7 +38,7 @@ importlib.reload(sys)
 ########################################
 ## set directories and parameters
 ########################################
-def main(EMBEDDING_FILE, TRAIN_DATA_FILE, VALID_DATA_FILE, MAX_SEQUENCE_LENGTH, MAX_NB_WORDS, EMBEDDING_DIM, VALIDATION_SPLIT, BATCH_SIZE) :
+def main(EMBEDDING_FILE, TRAIN_DATA_FILE, TEST_DATA_FILE, MAX_SEQUENCE_LENGTH, MAX_NB_WORDS, EMBEDDING_DIM, BATCH_SIZE) :
   # EMBEDDING_FILE = BASE_DIR + 'GoogleNews-vectors-negative300.bin'
   # TRAIN_DATA_FILE = BASE_DIR + 'train.csv'
   # TEST_DATA_FILE = BASE_DIR + 'test.csv'
@@ -55,56 +54,36 @@ def main(EMBEDDING_FILE, TRAIN_DATA_FILE, VALID_DATA_FILE, MAX_SEQUENCE_LENGTH, 
   re_weight = True # whether to re-weight classes to fit the 17.5% share in test set
   STAMP = 'lstm_%d_%d_%.2f_%.2f'%(num_lstm, num_dense, rate_drop_lstm, \
           rate_drop_dense)
-  ########################################
-  ## index word vectors
-  ########################################
-  print('Indexing word vectors')
-  word2vec = KeyedVectors.load_word2vec_format(EMBEDDING_FILE, \
-        binary=False)
-  print('Found %s word vectors of word2vec' % len(word2vec.vocab))
+  word2vec = load_embeddings(EMBEDDING_FILE, EMBEDDING_DIM)
   ########################################
   ## process texts in datasets
   ########################################
   print('Processing text dataset')
-  # The function "text_to_wordlist" is from
-  # https://www.kaggle.com/currie32/quora-question-pairs/the-importance-of-cleaning-text
-  texts_1 = []
-  texts_2 = []
-  labels = []
-  with codecs.open(TRAIN_DATA_FILE, encoding='utf-8') as f:
-    reader = csv.reader(f, delimiter=',')
-    header = next(reader)
-    for values in reader:
-      texts_1.append(text_to_wordlist(values[4]))
-      texts_2.append(text_to_wordlist(values[5]))
-      labels.append(int(values[6]))
-  print('Found %s texts in training dataset' % len(texts_1))
-  valid_texts_1 = []
-  valid_texts_2 = []
-  valid_labels = []
-  with codecs.open(VALID_DATA_FILE, encoding='utf-8') as f:
-    reader = csv.reader(f, delimiter=',')
-    header = next(reader)
-    for values in reader:
-      valid_texts_1.append(text_to_wordlist(values[4]))
-      valid_texts_2.append(text_to_wordlist(values[5]))
-      valid_labels.append(int(values[6]))
-  print('Found %s texts in valid dataset' % len(valid_texts_1))
+  train = load_train(TRAIN_DATA_FILE)
+  if os.path.isfile(TEST_DATA_FILE) :
+    test = load_test(TEST_DATA_FILE)
+  else :
+    test = {}
+  texts = []
+  for key in ["t1", "t2"] :
+    for obj in [train, test] :
+      if key in obj :
+        texts += obj[key]
   tokenizer = Tokenizer(num_words=MAX_NB_WORDS)
-  tokenizer.fit_on_texts(texts_1 + texts_2 + valid_texts_1 + valid_texts_2)
-  sequences_1 = tokenizer.texts_to_sequences(texts_1)
-  sequences_2 = tokenizer.texts_to_sequences(texts_2)
-  valid_sequences_1 = tokenizer.texts_to_sequences(valid_texts_1)
-  valid_sequences_2 = tokenizer.texts_to_sequences(valid_texts_2)
+  tokenizer.fit_on_texts(texts)
+  for key in ["t1", "t2"] :
+    for obj in [train, test] :
+      if key in obj :
+        obj[key.replace("t", "s")] = tokenizer.texts_to_sequences(obj[key])
   word_index = tokenizer.word_index
   print('Found %s unique tokens' % len(word_index))
-  data_1 = pad_sequences(sequences_1, maxlen=MAX_SEQUENCE_LENGTH)
-  data_2 = pad_sequences(sequences_2, maxlen=MAX_SEQUENCE_LENGTH)
-  labels = np.array(labels)
-  print('Shape of data tensor:', data_1.shape)
-  print('Shape of label tensor:', labels.shape)
-  valid_data_1 = pad_sequences(valid_sequences_1, maxlen=MAX_SEQUENCE_LENGTH)
-  valid_data_2 = pad_sequences(valid_sequences_2, maxlen=MAX_SEQUENCE_LENGTH)
+  for key in ["s1", "s2"] :
+    for obj in [train, test] :
+      if key in obj :
+        obj[key.replace("s", "d")] = pad_sequences(obj[key], maxlen = MAX_SEQUENCE_LENGTH)
+  train["label"] = np.array(train["label"])
+  print('Shape of data tensor:', train["d1"].shape)
+  print('Shape of label tensor:', train["label"].shape)
   ########################################
   ## prepare embeddings
   ########################################
@@ -206,11 +185,10 @@ if __name__ == "__main__":
   # EMBEDDING_FILE, TRAIN_DATA_FILE, VALID_DATA_FILE, MAX_SEQUENCE_LENGTH, MAX_NB_WORDS, EMBEDDING_DIM, VALIDATION_SPLIT
   parser.add_argument('EMBEDDING_FILE')
   parser.add_argument('TRAIN_DATA_FILE')
-  parser.add_argument('VALID_DATA_FILE')
   parser.add_argument('MAX_SEQUENCE_LENGTH', type = int)
   parser.add_argument('MAX_NB_WORDS', type = int)
   parser.add_argument('EMBEDDING_DIM', type = int)
-  parser.add_argument('VALIDATION_SPLIT', nargs = "?", default = 0.1, type = float)
   parser.add_argument('BATCH_SIZE', type = int)
+  parser.add_argument('--TEST_DATA_FILE', default = "")
   args = parser.parse_args()
-  main(args.EMBEDDING_FILE, args.TRAIN_DATA_FILE, args.VALID_DATA_FILE, args.MAX_SEQUENCE_LENGTH, args.MAX_NB_WORDS, args.EMBEDDING_DIM, args.VALIDATION_SPLIT, args.BATCH_SIZE)
+  main(args.EMBEDDING_FILE, args.TRAIN_DATA_FILE, args.TEST_DATA_FILE, args.MAX_SEQUENCE_LENGTH, args.MAX_NB_WORDS, args.EMBEDDING_DIM, args.BATCH_SIZE)
