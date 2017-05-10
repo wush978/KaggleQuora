@@ -12,10 +12,10 @@ def load_train(TRAIN_DATA_FILE) :
     reader = csv.reader(f, delimiter=',')
     header = next(reader)
     for values in reader:
-      idx.append(values[0])
-      texts_1.append(text_to_wordlist(values[4]))
-      texts_2.append(text_to_wordlist(values[5]))
-      labels.append(int(values[6]))
+      idx.append(int(values[0]))
+      texts_1.append(text_to_wordlist(values[3]))
+      texts_2.append(text_to_wordlist(values[4]))
+      labels.append(int(values[5]))
   print('Found %s rows from file %s' % (len(texts_1), TRAIN_DATA_FILE))
   return {"idx" : np.array(idx, dtype = int), "t1" : texts_1, "t2" : texts_2, "label" : labels}
 
@@ -27,7 +27,7 @@ def load_test(TEST_DATA_FILE) :
     reader = csv.reader(f, delimiter=',')
     header = next(reader)
     for values in reader:
-      idx.append(values[0])
+      idx.append(int(values[0]))
       texts_1.append(text_to_wordlist(values[1]))
       texts_2.append(text_to_wordlist(values[2]))
   print('Found %s rows from file %s' % (len(texts_1), TEST_DATA_FILE))
