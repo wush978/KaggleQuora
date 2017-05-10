@@ -6,3 +6,5 @@ bin/
 include/
 lib/
 .lib/
+result/
+tmp/
